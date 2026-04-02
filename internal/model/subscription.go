@@ -1,14 +1,17 @@
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Subscription struct {
 	ID          string     `json:"id"`
 	ServiceName string     `json:"service_name"`
 	Price       int        `json:"price"`
 	UserID      string     `json:"user_id"`
-	StartDate   time.Time  `json:"start_date"`
-	EndDate     *time.Time `json:"end_date"`
+	StartDate   MonthDate  `json:"start_date"`
+	EndDate     *MonthDate `json:"end_date"`
 }
 
 type CreateUpdateSubscriptionInput struct {
@@ -17,4 +20,29 @@ type CreateUpdateSubscriptionInput struct {
 	UserID      string `json:"user_id"`
 	StartDate   string `json:"start_date"`
 	EndDate     string `json:"end_date,omitempty"`
+}
+
+type MonthDate time.Time
+
+func (m MonthDate) MarshalJSON() ([]byte, error) {
+	t := time.Time(m)
+	return []byte(`"` + t.Format("01-2006") + `"`), nil
+}
+
+func (m *MonthDate) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), `"`)
+	t, err := time.Parse("01-2006", s)
+	if err != nil {
+		return err
+	}
+	*m = MonthDate(t)
+	return nil
+}
+
+func (m *MonthDate) ToTime() *time.Time {
+	if m == nil {
+		return nil
+	}
+	t := time.Time(*m)
+	return &t
 }

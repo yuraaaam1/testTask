@@ -4,7 +4,9 @@ import (
 	"log"
 
 	"github.com/yuraaaam1/testTask/internal/config"
+	"github.com/yuraaaam1/testTask/internal/handler"
 	"github.com/yuraaaam1/testTask/internal/repository"
+	"github.com/yuraaaam1/testTask/internal/service"
 )
 
 func main() {
@@ -20,5 +22,14 @@ func main() {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 
-	log.Println("Migrations applied successfully")
+	repo := repository.NewSubscriptionRepository(db)
+	svc := service.NewSubscriptionService(repo)
+	sh := handler.NewSubscriptionHandler(svc)
+
+	router := handler.NewRouter(sh)
+
+	log.Printf("Server starting on port %s", cfg.ServerPort)
+	if err := router.Run(":" + cfg.ServerPort); err != nil {
+		log.Fatalf("failed to start server: %v", err)
+	}
 }

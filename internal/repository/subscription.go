@@ -31,27 +31,37 @@ func (r *SubscriptionRepository) Create(input model.CreateUpdateSubscriptionInpu
 		endDate = &t
 	}
 
+	var start time.Time
+	var end *time.Time
 	sub := &model.Subscription{}
 	err = r.db.QueryRow(
 		`INSERT INTO subscriptions (service_name, price, user_id, start_date, end_date)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, service_name, price, user_id, start_date, end_date`,
 		input.ServiceName, input.Price, input.UserID, startDate, endDate,
-	).Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &sub.StartDate, &sub.EndDate)
+	).Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &start, &end)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subscription: %w", err)
+	}
+
+	sub.StartDate = model.MonthDate(start)
+	if end != nil {
+		md := model.MonthDate(*end)
+		sub.EndDate = &md
 	}
 
 	return sub, nil
 }
 
 func (r *SubscriptionRepository) GetByID(id string) (*model.Subscription, error) {
+	var start time.Time
+	var end *time.Time
 	sub := &model.Subscription{}
 	err := r.db.QueryRow(
 		`SELECT id, service_name, price, user_id, start_date, end_date
 		FROM subscriptions WHERE id = $1`, id,
-	).Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &sub.StartDate, &sub.EndDate)
+	).Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &start, &end)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -59,6 +69,12 @@ func (r *SubscriptionRepository) GetByID(id string) (*model.Subscription, error)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get subscription: %w", err)
+	}
+
+	sub.StartDate = model.MonthDate(start)
+	if end != nil {
+		md := model.MonthDate(*end)
+		sub.EndDate = &md
 	}
 
 	return sub, nil
@@ -75,14 +91,23 @@ func (r *SubscriptionRepository) List() ([]*model.Subscription, error) {
 	}
 	defer rows.Close()
 
+	var start time.Time
+	var end *time.Time
 	var subs []*model.Subscription
 	for rows.Next() {
 		sub := &model.Subscription{}
-		if err := rows.Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &sub.StartDate, &sub.EndDate); err != nil {
+		if err := rows.Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &start, &end); err != nil {
 			return nil, fmt.Errorf("failed to scan subscription: %w", err)
 		}
+		sub.StartDate = model.MonthDate(start)
+		if end != nil {
+			md := model.MonthDate(*end)
+			sub.EndDate = &md
+		}
+
 		subs = append(subs, sub)
 	}
+
 	return subs, nil
 }
 
@@ -113,7 +138,7 @@ func (r *SubscriptionRepository) Update(id string, input model.CreateUpdateSubsc
 		if err != nil {
 			return nil, fmt.Errorf("invalid start_date formate: %w", err)
 		}
-		existing.StartDate = t
+		existing.StartDate = model.MonthDate(t)
 	}
 
 	if input.EndDate != "" {
@@ -121,9 +146,12 @@ func (r *SubscriptionRepository) Update(id string, input model.CreateUpdateSubsc
 		if err != nil {
 			return nil, fmt.Errorf("ivalid end_date formate: %w", err)
 		}
-		existing.EndDate = &t
+		md := model.MonthDate(t)
+		existing.EndDate = &md
 	}
 
+	var start time.Time
+	var end *time.Time
 	sub := &model.Subscription{}
 	err = r.db.QueryRow(
 		`UPDATE subscriptions SET
@@ -134,11 +162,17 @@ func (r *SubscriptionRepository) Update(id string, input model.CreateUpdateSubsc
 		end_date = $5
 		WHERE id = $6
 		RETURNING id, service_name, price, user_id, start_date, end_date`,
-		existing.ServiceName, existing.Price, existing.UserID, existing.StartDate, existing.EndDate, id,
-	).Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &sub.StartDate, &sub.EndDate)
+		existing.ServiceName, existing.Price, existing.UserID, *existing.StartDate.ToTime(), existing.EndDate.ToTime(), id,
+	).Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &start, &end)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to update subscription: %w", err)
+	}
+
+	sub.StartDate = model.MonthDate(start)
+	if end != nil {
+		md := model.MonthDate(*end)
+		sub.EndDate = &md
 	}
 
 	return sub, nil
