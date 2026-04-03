@@ -7,8 +7,9 @@ func NewRouter(sh *SubscriptionHandler) *gin.Engine {
 
 	api := router.Group("/api/v1")
 
-	subscriptions := api.Group("/subscriptions")
+	api.GET("/subscriptions/cost", sh.CalculateTotalCostHandler)
 
+	subscriptions := api.Group("/subscriptions")
 	subscriptions.POST("", sh.CreateHandler)
 	subscriptions.GET("/:id", sh.GetByIDHandler)
 	subscriptions.GET("", sh.ListHandler)

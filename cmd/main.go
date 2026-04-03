@@ -5,21 +5,28 @@ import (
 
 	"github.com/yuraaaam1/testTask/internal/config"
 	"github.com/yuraaaam1/testTask/internal/handler"
+	"github.com/yuraaaam1/testTask/internal/logger"
 	"github.com/yuraaaam1/testTask/internal/repository"
 	"github.com/yuraaaam1/testTask/internal/service"
+	"go.uber.org/zap"
 )
 
 func main() {
+	if err := logger.Init(); err != nil {
+		log.Fatalf("failed to init logger: %v", err)
+	}
+	defer logger.Log.Sync()
+
 	cfg := config.Load()
 
 	db, err := repository.NewDB(cfg)
 	if err != nil {
-		log.Fatalf("failed to connect to db: %v", err)
+		logger.Log.Fatal("failed to connect to db", zap.Error(err))
 	}
 	defer db.Close()
 
 	if err := repository.RunMigrations(db); err != nil {
-		log.Fatalf("failed to run migrations: %v", err)
+		logger.Log.Fatal("failed to run migrations", zap.Error(err))
 	}
 
 	repo := repository.NewSubscriptionRepository(db)
@@ -28,8 +35,8 @@ func main() {
 
 	router := handler.NewRouter(sh)
 
-	log.Printf("Server starting on port %s", cfg.ServerPort)
+	logger.Log.Info("Server starting", zap.String("port", cfg.ServerPort))
 	if err := router.Run(":" + cfg.ServerPort); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+		logger.Log.Fatal("failed to start server", zap.Error(err))
 	}
 }

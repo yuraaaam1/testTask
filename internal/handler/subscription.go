@@ -96,3 +96,23 @@ func (h *SubscriptionHandler) DeleteHandler(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+func (h *SubscriptionHandler) CalculateTotalCostHandler(c *gin.Context) {
+	userID := c.Query("user_id")
+	serviceName := c.Query("service_name")
+	dateFrom := c.Query("date_from")
+	dateTo := c.Query("date_to")
+
+	if dateFrom == "" || dateTo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "date_from and date_to required"})
+		return
+	}
+
+	result, err := h.service.CalculateTotalCost(userID, serviceName, dateFrom, dateTo)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}

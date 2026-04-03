@@ -24,6 +24,10 @@ type CreateUpdateSubscriptionInput struct {
 
 type MonthDate time.Time
 
+type TotalCostResult struct {
+	TotalCost int `json:"total_cost"`
+}
+
 func (m MonthDate) MarshalJSON() ([]byte, error) {
 	t := time.Time(m)
 	return []byte(`"` + t.Format("01-2006") + `"`), nil

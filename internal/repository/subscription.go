@@ -198,3 +198,71 @@ func (r *SubscriptionRepository) Delete(id string) error {
 
 	return nil
 }
+
+func (r *SubscriptionRepository) GetByFilter(userID, serviceName, dateFrom, dateTo string) ([]*model.Subscription, error) {
+	query := `SELECT id, service_name, price, user_id, start_date, end_date
+			FROM subscriptions WHERE 1=1`
+
+	args := []interface{}{}
+	argNum := 1
+
+	if userID != "" {
+		query += fmt.Sprintf(" AND user_id = $%d", argNum)
+		args = append(args, userID)
+		argNum++
+	}
+
+	if serviceName != "" {
+		query += fmt.Sprintf(" AND service_name = $%d", argNum)
+		args = append(args, serviceName)
+		argNum++
+	}
+
+	if dateFrom != "" {
+		from, err := time.Parse("01-2006", dateFrom)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date_from format: %w", err)
+		}
+
+		query += fmt.Sprintf(" AND (end_date IS NULL OR end_date >= $%d)", argNum)
+		args = append(args, from)
+		argNum++
+	}
+
+	if dateTo != "" {
+		to, err := time.Parse("01-2006", dateTo)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date_to format: %w", err)
+		}
+
+		query += fmt.Sprintf("  AND start_date <= $%d", argNum)
+		args = append(args, to)
+		argNum++
+	}
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subscriptions by filter: %w", err)
+	}
+	defer rows.Close()
+
+	var subs []*model.Subscription
+	for rows.Next() {
+		var start time.Time
+		var end *time.Time
+		sub := &model.Subscription{}
+
+		if err := rows.Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &start, &end); err != nil {
+			return nil, fmt.Errorf("failed to scan subscription: %w", err)
+		}
+		sub.StartDate = model.MonthDate(start)
+		if end != nil {
+			md := model.MonthDate(*end)
+			sub.EndDate = &md
+		}
+
+		subs = append(subs, sub)
+	}
+
+	return subs, nil
+}
